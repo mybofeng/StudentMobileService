@@ -464,33 +464,23 @@ router.get('/tea_college', function (req, res, next) {
 
 //老师页面的专业信息
 router.get('/tea_profession', function (req, res, next) {
-    College.findOne({_id: req.query.collegeId})
-        .populate('Professions')
-        .exec(function (err, doc) {
-            if (err) {
-                next(err);
-            }
-            else {
-                res.json(doc.Professions);
-                console.log(doc.Professions)
-            }
-        })
+    Profession.find({College: req.query.collegeId}, function(err, professions){
+        if(err) next(err);
+        res.jsonp(professions);
+    });
 });
 
 //老师页面的班级列表信息
 router.get('/tea_class', function (req, res, next) {
-    Profession.findOne({_id: req.query.professionId})
-        .populate('Classes')
-        .exec(function (err, doc) {
-            if (err) {
-                next(err);
+    Class.find({Profession: req.query.professionId}, function(err, classes){
+        if(err){
+            next(err);
+        } else{
+            if(classes){
+                res.jsonp(classes);
             }
-            else {
-                res.json(doc.Classes);
-
-                console.log(doc.Classes);
-            }
-        })
+        }
+    });
 });
 //老师页面的班级成员列表信息
 router.get('/tea_student', function (req, res, next) {
@@ -752,22 +742,37 @@ router.get('/GetInformation', function (req, res, next) {
         });
     }
     if (req.query.tag == 'GetProfession') {
-        College.findOne({CollegeName: req.query.CollegeName})
-            .populate('Professions')
-            .exec(function (err, profession) {
-                //
-                //console.log(profession[0].Professions);
-                res.json(profession.Professions);
-            });
+        College.findOne({CollegeName: req.query.CollegeName}, function(err, college){
+            if(err){
+                next(err);
+            } else{
+                if(college){
+                    Profession.find({College: college._id}, function(err, professions){
+                        if(err){
+                            next(err);
+                        } else{
+                            res.jsonp(professions);
+                        }
+                    })
+                }
+            }
+        });
     }
     if (req.query.tag == 'GetClasses') {
-        Profession.findOne({ProfessionName: req.query.ProfessionName})
-            .populate('Classes')
-            .exec(function (err, classes) {
-                //
-                console.log(classes.Classes);
-                res.json(classes.Classes);
-            });
+
+        Profession.findOne({ProfessionName: req.query.ProfessionName}, function(err, profession){
+            if(err){
+                next(err);
+            } else{
+                Class.find({Profession: profession._id}, function(err, classes){
+                    if(err){
+                        next(err);
+                    } else{
+                        res.jsonp(classes);
+                    }
+                });
+            }
+        });
     }
 });
 router.post('/SendMessage', function (req, res, next) {
@@ -1325,6 +1330,15 @@ router.get('/versions', function (req, res, next) {
         //
     });
 });
+
+
+
+
+// 教师端
+
+
+
+
 module.exports = router;
 
 //1161,1990
