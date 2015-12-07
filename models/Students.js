@@ -32,7 +32,16 @@ var StudentSchema = new mongoose.Schema({
     FatherPhone: String,
     ClassTeacher: {type: mongoose.Schema.Types.ObjectId, ref: 'Teacher'},
 
-    Device: String
+    Device: String,
+
+
+    //大三实习
+    CompanyName:String,//公司名称
+    CompanyPhone:String,//公司电话
+    Companyperson:String,//公司负责人联系方式
+    AddressName:String,
+    Address: {lat: Number,lng: Number},//地理坐标
+    Sigin_sum:String//签到次数
 });
 
 mongoose.model('Student', StudentSchema);
