@@ -55,6 +55,7 @@ require('../models/Vacations');
 require('../models/Messages');
 require('../models/Excels');
 require('../models/Versions');
+require('../models/TraineeSignIns');
 
 //在数据库中开辟一块区域用于存储模型Myclass的值
 var Student = mongoose.model('Student');
@@ -73,7 +74,7 @@ var College = mongoose.model('College');
 var School = mongoose.model('School');
 var Excel = mongoose.model('Excel');
 var Version = mongoose.model('Version');
-
+var TraineeSignIn = mongoose.model('TraineeSignIn');
 
 var obj = xlsx.parse('public/files/kcb.xls');
 
@@ -1516,6 +1517,139 @@ router.get('/versions', function (req, res, next) {
 
 // 教师端
 
+
+//大三实习
+
+//大三实习信息
+router.get('/DS_information',function(req,res,next){
+    Student.findOne({_id:req.query._id},function(err,doc){
+        if(err){next(err)}
+        else{
+            res.json(doc);
+        }
+    })
+});
+
+//大三注册实习签到信息
+router.post('/change_DS_information',function(req,res,next){
+    if(req.body.tag == '公司名称'){
+        Student.findOneAndUpdate({_id:req.body._id }, {CompanyName:req.body.Infors}, function (err, doc) {
+            if (err != null) {
+                next(err);
+            }
+            else {
+                res.json('公司名称');
+            }
+        })
+    }
+    else if(req.body.tag == '公司电话'){
+        Student.findOneAndUpdate({_id:req.body._id}, {CompanyPhone:req.body.Infors}, function (err, doc) {
+            if (err != null) {
+                next(err);
+            }
+            else {
+                res.json('公司电话')
+            }
+        })
+    }
+    else if(req.body.tag == '负责人姓名'){
+        Student.findOneAndUpdate({_id:req.body._id}, {Companyperson:req.body.Infors}, function (err, doc) {
+            if (err != null) {
+                next(err);
+            }
+            else {
+                res.json('负责人姓名')
+            }
+        })
+    }
+
+});
+
+//判断大三是否已经注册了大三签到地点
+router.get('/check_DS_signAdress',function(req,res,next){
+    Student.findOne({_id:req.query._id},function(err,doc){
+        if(err){next(err)}
+        else{
+            if(doc.AddressName){
+                res.send('1')
+            }
+            else{
+                res.send('0')
+            }
+        }
+    })
+});
+
+//大三修改实习地址
+router.post('/change_practice',function(req,res,next){
+    Student.findOneAndUpdate({_id:req.body._id},{AddressName:req.body.address,Address:req.body.Address},function(err,doc){
+        if(err){next(err)}
+        else{
+            res.json(doc);
+        }
+    })
+});
+
+//判断大三的签到状态
+router.get('/check_DS_sign',function(req,res,next){
+    Student.findOne({_id:req.query._id},function(err,doc){
+        if(doc.IsSignIn == '1'){
+            res.send('1');
+        }
+        else{
+            res.send('0');
+        }
+    })
+});
+
+//大三实习签到
+router.post('/DS_sign',function(req,res,next){
+    var date = Date.parse(req.body.date);
+    var newDate = new Date(date);
+    Student.findOne({_id:req.body._id},function(err,docc){
+        if(docc.AddressName == req.body.address){
+            var aa = new Studentsign({StudentId:req.body._id,SignInDate:newDate,AddressName:req.body.address})
+            aa.save(function(err,doc){
+                if(err){next(err)}
+                else{
+                    Student.findOne({_id:req.body._id},function(err,docd){
+                        docd.Sigins.push(doc._id);
+                        docd.save(function(err){
+                            console.log('保存成功');
+                            Student.findOneAndUpdate({_id:req.body._id},{IsSignIn:1,Sigin_sum:docd.Sigins.length},function(err,docs){
+                                if(err){next(err)}
+                                else{
+                                    res.send('签到成功');
+                                }
+                            })
+                        })
+                    })
+                }
+            })
+        }
+        else{
+            res.send('签到不成功')
+        }
+    })
+});
+
+//大三签到详情
+router.get('/DS_sigin_infor',function(req,res,next){
+    Studentsign.find({StudentId:req.query.PresonId},function(err,doc){
+        if(err){next(err)}
+        else{
+            res.json(doc);
+        }
+    })
+});
+
+//大三签到详情头像
+router.get('/DS_sigin_photo',function(req,res,next){
+    Student.findOne({_id:req.query.PresonId},function(err,doc){
+        doc.Photo = httpAddress+doc.Photo;
+        res.json(doc.Photo)
+    })
+});
 
 module.exports = router;
 

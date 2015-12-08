@@ -18,7 +18,7 @@ var StudentSchema = new mongoose.Schema({
     Native:String,  //籍贯
     Password:String,  //密码
 
-    IsSignIn: { type: Number, default: 0 },
+    //IsSignIn: { type: Number, default: 0 },
 
     Classes:{type: mongoose.Schema.Types.ObjectId, ref: 'Class'},//嵌套班级
     Professions: {type: mongoose.Schema.Types.ObjectId, ref: 'Profession'},//嵌套专业
