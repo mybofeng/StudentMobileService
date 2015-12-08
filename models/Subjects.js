@@ -12,7 +12,7 @@ var SubjectSchema = new mongoose.Schema({
     SubjectName: String,
     ClassRoomName: String, // 教室名
     Teacher:{type: mongoose.Schema.Types.ObjectId, ref: 'Teacher'},
-    Class:{type: mongoose.Schema.Types.ObjectId, ref: 'Class'},
+    Class:{type: mongoose.Schema.Types.ObjectId, ref: 'Class'}
 
 });
 

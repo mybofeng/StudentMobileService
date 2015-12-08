@@ -4,6 +4,8 @@ var router = express.Router();
 
 var xlsx = require('node-xlsx');
 
+var async = require('async');
+
 
 // 百度推送
 var BaiduPush = require('baidu-push');
@@ -192,16 +194,15 @@ router.get('/myclass_infor', function (req, res, next) {
 //学生端、获取个人信息
 router.get('/student_person', function (req, res, next) {
     Student.findOne({Number: req.query.Number}, function (err, doc) {
-        if (err != null) {
+        if (err) {
             next(err);
         }
         else {
-            console.log(doc);
             if (doc != null) {
                 doc.Photo = httpAddress + doc.Photo;
                 res.jsonp(doc)
             } else {
-                throw new Error("不存在此学号用户");
+                res.jsonp("不存在此学号用户，请重新登录");
             }
         }
     })
@@ -472,15 +473,19 @@ router.get('/tea_profession', function (req, res, next) {
 
 //老师页面的班级列表信息
 router.get('/tea_class', function (req, res, next) {
-    Class.find({Profession: req.query.professionId}, function(err, classes){
-        if(err){
-            next(err);
-        } else{
-            if(classes){
-                res.jsonp(classes);
-            }
-        }
+    Class.find({Profession: req.query.professionId}, function(err,classes){
+        if(err) next(err);
+        res.json(classes);
     });
+    //Class.find({Profession: req.query.professionId}, function(err, classes){
+    //    if(err){
+    //        next(err);
+    //    } else{
+    //        if(classes){
+    //            res.jsonp(classes);
+    //        }
+    //    }
+    //});
 });
 //老师页面的班级成员列表信息
 router.get('/tea_student', function (req, res, next) {
@@ -903,10 +908,14 @@ router.get('/gkb', function (req, res, next) {
     query = new RegExp(req.query.classes, 'i');
 
     Excel.findOne({ClassName: query}, function (err, doc) {
-        console.log(doc.Number);
+        if(doc != null){
+            console.log(doc.Number);
 
-        var obj = xlsx.parse('public/files/kcb.xls');
-        res.json(obj[doc.Number]);
+            var obj = xlsx.parse('public/files/kcb.xls');
+            res.json(obj[doc.Number]);
+        } else{
+            res.jsonp('您的班级尚未添加课程信息，请联系管理员添加');
+        }
     });
 
 });
@@ -1254,49 +1263,220 @@ function CountNumOfSign(Begin,End,SingIn,SignOut){
 }
 
 var schedule = require('node-schedule');
-var rule5 = new schedule.RecurrenceRule();
 
-rule5.hour = 23;
-rule5.minute = 30;
+var rule1 = new schedule.RecurrenceRule();
+var rule2 = new schedule.RecurrenceRule();
+var rule3 = new schedule.RecurrenceRule();
+var rule4 = new schedule.RecurrenceRule();
 
-var j5 = schedule.scheduleJob(rule5, function () {
+rule1.hour = 10;
+rule1.minute = 05;
+rule2.hour = 12;
+rule2.minute = 05;
+rule3.hour = 17;
+rule3.minute = 20;
+rule4.hour = 22;
+rule4.minute = 05;
+
+var j1 = schedule.scheduleJob(rule1, function () {
     //
     var today_Begin = new Date();
     today_Begin.setHours(7, 00, 00);
     var today_End = new Date();
-    today_End.setHours(23, 00, 00);
+    //today_End.setHours(23, 00, 00);
     //
-    SignIn.find({})
-        .populate('Subject')
-        .exec(function(err,signs){
-            if(err){
-                next(err);
-            } else{
-                if(signs){
-                    signs.forEach(function(item){
-                        var NumOfSub = CountNumOfSubject(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate);
-                        if(item.FirstSignInState == 0 || item.SecondSignInState == 0){
-                            // 全矿
-                            item.Ctnot = NumOfSub;
-                            item.save();
+    Subject.find({BeginSubjectDate:{$gte: today_Begin}, EndSubjectDate: {$lte: today_End}}, function(err, subjects){
+        async.each(subjects, function(subject, callback1){
+            //
+            SignIn.find({Subject: subject._id})
+                .populate('Subject')
+                .exec(function(err,signs){
+                    if(err){
+                        next(err);
+                    } else{
+                        if(signs){
+                            signs.forEach(function(item){
+                                var NumOfSub = CountNumOfSubject(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate);
+                                if(item.FirstSignInState == 0 || item.SecondSignInState == 0){
+                                    // 全矿
+                                    item.Ctnot = NumOfSub;
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                                else if(item.FirstSignInState == 2 && item.SecondSignInState == 1){
+                                    // 迟到
+                                    item.Ctnot = -1;
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                                else if(item.FirstSignInState == 1 && item.SecondSignInState == 1){
+                                    // 正常
+                                }
+                                else{
+                                    // 计算旷课
+                                    item.Ctnot = CountNumOfSign(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate,item.FirstSignInTime,item.SecondSignInTime);
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                            });
                         }
-                        else if(item.FirstSignInState == 2 && item.SecondSignInState == 1){
-                            // 迟到
-                            item.Ctnot = -1;
-                            item.save();
-                        }
-                        else if(item.FirstSignInState == 1 && item.SecondSignInState == 1){
-                            // 正常
-                        }
-                        else{
-                            // 计算旷课
-                            item.Ctnot = CountNumOfSign(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate,item.FirstSignInTime,item.SecondSignInState);
-                            item.save();
-                        }
-                    });
-                }
-            }
+                    }
+                    callback1();
+                });
+        }, function(err){
+            //
         });
+    });
+});
+var j2 = schedule.scheduleJob(rule1, function () {
+    //
+    var today_Begin = new Date();
+    today_Begin.setHours(9, 50, 00);
+    var today_End = new Date();
+    //today_End.setHours(23, 00, 00);
+    //
+    Subject.find({BeginSubjectDate:{$gte: today_Begin}, EndSubjectDate: {$lte: today_End}}, function(err, subjects){
+        async.each(subjects, function(subject, callback1){
+            //
+            SignIn.find({Subject: subject._id})
+                .populate('Subject')
+                .exec(function(err,signs){
+                    if(err){
+                        next(err);
+                    } else{
+                        if(signs){
+                            signs.forEach(function(item){
+                                var NumOfSub = CountNumOfSubject(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate);
+                                if(item.FirstSignInState == 0 || item.SecondSignInState == 0){
+                                    // 全矿
+                                    item.Ctnot = NumOfSub;
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                                else if(item.FirstSignInState == 2 && item.SecondSignInState == 1){
+                                    // 迟到
+                                    item.Ctnot = -1;
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                                else if(item.FirstSignInState == 1 && item.SecondSignInState == 1){
+                                    // 正常
+                                }
+                                else{
+                                    // 计算旷课
+                                    item.Ctnot = CountNumOfSign(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate,item.FirstSignInTime,item.SecondSignInTime);
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                            });
+                        }
+                    }
+                    callback1();
+                });
+        }, function(err){
+            //
+        });
+    });
+});
+var j3 = schedule.scheduleJob(rule1, function () {
+    //
+    var today_Begin = new Date();
+    today_Begin.setHours(14, 10, 00);
+    var today_End = new Date();
+    //today_End.setHours(23, 00, 00);
+    //
+    Subject.find({BeginSubjectDate:{$gte: today_Begin}, EndSubjectDate: {$lte: today_End}}, function(err, subjects){
+        async.each(subjects, function(subject, callback1){
+            //
+            SignIn.find({Subject: subject._id})
+                .populate('Subject')
+                .exec(function(err,signs){
+                    if(err){
+                        next(err);
+                    } else{
+                        if(signs){
+                            signs.forEach(function(item){
+                                var NumOfSub = CountNumOfSubject(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate);
+                                if(item.FirstSignInState == 0 || item.SecondSignInState == 0){
+                                    // 全矿
+                                    item.Ctnot = NumOfSub;
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                                else if(item.FirstSignInState == 2 && item.SecondSignInState == 1){
+                                    // 迟到
+                                    item.Ctnot = -1;
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                                else if(item.FirstSignInState == 1 && item.SecondSignInState == 1){
+                                    // 正常
+                                }
+                                else{
+                                    // 计算旷课
+                                    item.Ctnot = CountNumOfSign(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate,item.FirstSignInTime,item.SecondSignInTime);
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                            });
+                        }
+                    }
+                    callback1();
+                });
+        }, function(err){
+            //
+        });
+    });
+});
+var j4 = schedule.scheduleJob(rule1, function () {
+    //
+    var today_Begin = new Date();
+    today_Begin.setHours(18, 00, 00);
+    var today_End = new Date();
+    //today_End.setHours(23, 00, 00);
+    //
+    Subject.find({BeginSubjectDate:{$gte: today_Begin}, EndSubjectDate: {$lte: today_End}}, function(err, subjects){
+        async.each(subjects, function(subject, callback1){
+            //
+            SignIn.find({Subject: subject._id})
+                .populate('Subject')
+                .exec(function(err,signs){
+                    if(err){
+                        next(err);
+                    } else{
+                        if(signs){
+                            signs.forEach(function(item){
+                                var NumOfSub = CountNumOfSubject(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate);
+                                if(item.FirstSignInState == 0 || item.SecondSignInState == 0){
+                                    // 全矿
+                                    item.Ctnot = NumOfSub;
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                                else if(item.FirstSignInState == 2 && item.SecondSignInState == 1){
+                                    // 迟到
+                                    item.Ctnot = -1;
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                                else if(item.FirstSignInState == 1 && item.SecondSignInState == 1){
+                                    // 正常
+                                }
+                                else{
+                                    // 计算旷课
+                                    item.Ctnot = CountNumOfSign(item.Subject.BeginSubjectDate,item.Subject.EndSubjectDate,item.FirstSignInTime,item.SecondSignInTime);
+                                    item.StaticsDate = new Date();
+                                    item.save();
+                                }
+                            });
+                        }
+                    }
+                    callback1();
+                });
+        }, function(err){
+            //
+        });
+    });
 });
 
 // 学委查看考勤状况
@@ -1335,8 +1515,6 @@ router.get('/versions', function (req, res, next) {
 
 
 // 教师端
-
-
 
 
 module.exports = router;
