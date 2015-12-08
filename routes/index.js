@@ -324,7 +324,7 @@ router.get('/MyTeachers', function (req, res, next) {
             res.json(array);
         }
     })
-})
+});
 
 
 //教师端的数据
@@ -337,7 +337,7 @@ router.get('/teacher_person', function (req, res, next) {
         }
         else {
             console.log(doc);
-            doc.Photo = httpAddress + doc.Photo
+            doc.Photo = httpAddress + doc.Photo;
             res.json(doc)
         }
     })
@@ -490,7 +490,7 @@ router.get('/tea_class', function (req, res, next) {
 });
 //老师页面的班级成员列表信息
 router.get('/tea_student', function (req, res, next) {
-    Student.find({Classes: req.query.Classes}, function(err,students){
+    Student.find({Classes: req.query.ClassId}, function(err,students){
         if(err){
             next(err);
         } else{
@@ -508,7 +508,7 @@ router.get('/tea_stu_preson', function (req, res, next) {
             next(err)
         }
         else {
-            doc.Photo = httpAddress + doc.Photo
+            doc.Photo = httpAddress + doc.Photo;
             res.json(doc)
         }
     })
@@ -924,147 +924,48 @@ router.get('/gkb', function (req, res, next) {
 
 //老师的，先放一边
 router.get('/getSignIn', function (req, res, next) {
-    //
-    var beginDay = new Date("2015-11-3");
-    var now = new Date();
-    SignIn.find({
-        ClassId: req.query.ClassId,
-        BeginSubjectDate: {$gte: beginDay},
-        EndSubjectDate: {$lte: new Date()},
-        Ctnot: {$gte: 0}
-    })
-        .populate('StudentId')
-        .exec(function (err, signs) {
-            var array = [];
-            signs.forEach(function (item, callback) {
-                //
-                if (array.length != 0) {
-                    array.forEach(function (arr, callback) {
-                        //
-                        if (arr.StudentId.toString() == item.StudentId._id.toString()) {
-                            //
-                            arr.Ctnot = parseInt(arr.Ctnot) + parseInt(item.Ctnot)
-                        } else {
-                            //
-                            array.push({
-                                StudentId: item.StudentId._id,
-                                StudentName: item.StudentId.StudentName,
-                                Photo: httpAddress + item.StudentId.Photo,
-                                Ctnot: item.Ctnot,
-                                SubjectName: item.SubjectName,
-                                BeginSubjectDate: item.BeginSubjectDate,
-                                EndSubjectDate: item.EndSubjectDate
-                            })
-                        }
+    var Students = [];
+    var Ctnot = 0;
+    Student.find({Classes: req.query.ClassId}, function(err,students){
+        if(err){
+            next(err);
+        } else{
+            if(students){
+                async.each(students, function(student, callback1){
+                    SignIn.find({StaticsDate: {$gte: new Date("2015-9-7")}, StaticsDate: {$lte: new Date()}, Student: student._id}, function(err,signs){
+                        async.each(signs, function(sign, callback2){
+                            Ctnot += sign.Ctnot;
+                            callback2();
+                        }, function(err){
+                            if(err) next(err);
+                            Students.push({_id: student._id, Name: student.StudentName, Ctnot: Ctnot, Photo: httpAddress+student.Photo});
+                            callback1();
+                        });
                     });
-                } else {
-                    array.push({
-                        StudentId: item.StudentId._id,
-                        StudentName: item.StudentId.StudentName,
-                        Photo: httpAddress + item.StudentId.Photo,
-                        Ctnot: item.Ctnot,
-                        SubjectName: item.SubjectName,
-                        BeginSubjectDate: item.BeginSubjectDate,
-                        EndSubjectDate: item.EndSubjectDate
-                    })
-                }
-            });
-            res.json(array);
-        });
+                },function(err){
+                    res.jsonp(Students);
+                    console.log(Students);
+                });
 
+            }
+        }
+    });
 });
+
 //先放一边
 router.get('/StudentViewCtnot', function (req, res, next) {
     //
-    var beginDay = new Date("2015-11-3");
-    var now = new Date();
-
-    SignIn.find({
-        StudentId: req.query.StudentId,
-        BeginSubjectDate: {$gte: beginDay},
-        EndSubjectDate: {$lte: new Date()},
-        Ctnot: {$gte: 0}
-    })
-        .populate('StudentId')
-        .exec(function (err, signs) {
-            var array = [];
-            signs.forEach(function (item, callback) {
-                //
-                if (array.length != 0) {
-                    array.forEach(function (arr, callback) {
-                        //
-                        if (arr.StudentId.toString() == item.StudentId._id.toString()) {
-                            //
-                            arr.Ctnot = parseInt(arr.Ctnot) + parseInt(item.Ctnot)
-                        } else {
-                            //
-                            array.push({
-                                StudentId: item.StudentId._id,
-                                StudentName: item.StudentId.StudentName,
-                                Photo: httpAddress + item.StudentId.Photo,
-                                Ctnot: item.Ctnot,
-                                SubjectName: item.SubjectName,
-                                BeginSubjectDate: item.BeginSubjectDate,
-                                EndSubjectDate: item.EndSubjectDate
-                            })
-                        }
-                    });
-                } else {
-                    array.push({
-                        StudentId: item.StudentId._id,
-                        StudentName: item.StudentId.StudentName,
-                        Photo: httpAddress + item.StudentId.Photo,
-                        Ctnot: item.Ctnot,
-                        SubjectName: item.SubjectName,
-                        BeginSubjectDate: item.BeginSubjectDate,
-                        EndSubjectDate: item.EndSubjectDate
-                    })
-                }
-            });
-            res.json(array);
+    SignIn.find({Student: req.query.StudentId, StaticsDate: {$gte: new Date("2015-9-7")}, StaticsDate: {$lte: new Date()}, Ctnot: {$gt: 0}})
+        .populate('Subject')
+        .exec(function(err, sigins){
+            console.log(sigins);
+            res.jsonp(sigins);
+            //async.each(sigins, function(signin, callback1){
+            //    //
+            //});
         });
-
-    //SignIn.find({StudentId: req.query.StudentId, BeginSubjectDate: {$gte: beginDay}, EndSubjectDate: {$lte: now}, SecondSignInState: 1, FirstSignInState: -1, IsVacation: 0})
-    //    .populate('StudentId')
-    //    .exec(function(err,signs){
-    //      var array = [];
-    //      signs.forEach(function(item, callback){
-    //        //
-    //        if(array.length != 0){
-    //          array.forEach(function(arr, callback){
-    //            //
-    //            if(arr.StudentId.toString() == item.StudentId._id.toString()){
-    //              //
-    //              arr.Ctnot = parseInt(arr.Ctnot)+parseInt(Ctnot(item.BeginSubjectDate, item.EndSubjectDate, item.FirstSignInTime, item.SecondSignInTime))
-    //            } else{
-    //              //
-    //              array.push({
-    //                StudentId: item.StudentId._id,
-    //                StudentName: item.StudentId.StudentName,
-    //                Photo: httpAddress+ item.StudentId.Photo,
-    //                Ctnot: Ctnot(item.BeginSubjectDate, item.EndSubjectDate, item.FirstSignInTime, item.SecondSignInTime),
-    //                SubjectName: item.SubjectName,
-    //                BeginSubjectDate: item.BeginSubjectDate,
-    //                EndSubjectDate: item.EndSubjectDate
-    //              })
-    //            }
-    //          });
-    //        } else{
-    //          array.push({
-    //            StudentId: item.StudentId._id,
-    //            StudentName: item.StudentId.StudentName,
-    //            Photo: httpAddress+ item.StudentId.Photo,
-    //            Ctnot: Ctnot(item.BeginSubjectDate, item.EndSubjectDate, item.FirstSignInTime, item.SecondSignInTime),
-    //            SubjectName: item.SubjectName,
-    //            BeginSubjectDate: item.BeginSubjectDate,
-    //            EndSubjectDate: item.EndSubjectDate
-    //          })
-    //        }
-    //      });
-    //      console.log(array);
-    //      res.json(array);
-    //    });
 });
+
 //先放一边
 router.get('/getSignInfor', function (req, res, next) {
     SignIn.find({
